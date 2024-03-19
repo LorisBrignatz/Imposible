@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Imposible</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        html {
+            height: 100%;
+        }
+
+        body {
+            font-family: 'Press Start 2P', cursive;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100vw;
+            height: 100vh;
+            background-image: url('https://wallpaperaccess.com/full/5226991.png');
+            background-size: cover;
+            color: #FFFFFF;
+        }
+
+        #gameContainer {
+            text-align: center;
+            background-color: rgba(0, 0, 0, 0.75);
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(4, 100px);
+            grid-gap: 5px;
+            margin-top: 20px;
+        }
+
+        .tile {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100px;
+            background-color: #d53f8a;
+            color: #000000;
+            cursor: pointer;
+            user-select: none;
+            border-radius: 5px;
+        }
+
+        button {
+            font-family: 'Press Start 2P', cursive;
+            background-color: #fbc927;
+            color: #000000;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: transform 0.1s ease;
+        }
+
+        button:hover {
+            transform: scale(1.1);
+        }
+
+        input[type="text"] {
+            font-family: 'Press Start 2P', cursive;
+            margin-bottom: 10px;
+            padding: 5px;
+            background-color: #FFFFFF;
+            color: #000000;
+            border: none;
+            border-radius: 5px;
+        }
+
+        #playerNameDisplay,
+        #timeCounter,
+        #moveCounter {
+            margin: 10px 0;
+            padding: 5px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="gameContainer">
+        <input type="text" id="playerNameInput" placeholder="Introduce tu nombre">
+        <button id="startButton" onclick="startGame()">Iniciar el juego</button>
+        <div id="playerNameDisplay"></div>
+        <div id="timeCounter">Tiempo : 0 segundos</div>
+        <div id="moveCounter">Intentos : 0</div>
+        <div id="board"></div>
+    </div>
+    <script>
+        let board = [];
+        let boardSize; // sera déterminé par l'utilisateur
+        let emptyTile = { x: 0, y: 0 };
+        let moveCounter = 0;
+        let timeCounter = 0;
+        let timer = null;
+
+        function startGame() {
+            const userInput = prompt("Introduzca el tamaño del tablero (número de casillas por lado):", "4");
+            const parsedInput = parseInt(userInput, 10);
+            if (!parsedInput || parsedInput < 3) {
+                alert("El tamaño de la bandeja debe ser un número válido mayor o igual a 3!");
+                return;
+            }
+            boardSize = parsedInput;
+
+            const playerName = document.getElementById('playerNameInput').value.trim();
+            if (!playerName) {
+                alert('Introduce un nombre para empezar a jugar !');
+                return;
+            }
+            document.getElementById('playerNameDisplay').innerText = `Jugador : ${playerName}`;
+            document.getElementById('playerNameInput').style.display = 'none';
+            document.getElementById('startButton').innerText = 'Reiniciar el juego';
+            document.getElementById('startButton').onclick = restartGame;
+
+            setupBoard();
+            shuffleBoard();
+            updateBoardDisplay();
+            startTimer();
+        }
+
+        function restartGame() {
+            moveCounter = 0;
+            document.getElementById('moveCounter').innerText = 'Intentos : 0';
+            timeCounter = 0;
+            document.getElementById('timeCounter').innerText = 'Tiempo : 0 segundos';
+
+            setupBoard();
+            shuffleBoard();
+            updateBoardDisplay();
+            startTimer();
+        }
+
+        function setupBoard() {
+            board = [];
+            for (let i = 1; i < boardSize * boardSize; i++) {
+                board.push(i);
+            }
+            board.push(0);
+            emptyTile = { x: boardSize - 1, y: boardSize - 1 };
+        }
+
+        function shuffleBoard() {
+            let shuffleMoves = 100;
+            for (let i = 0; i < shuffleMoves; i++) {
+                let neighbors = getNeighbors(emptyTile);
+                let randomNeighbor = neighbors[Math.floor(Math.random() * neighbors.length)];
+                moveTile(randomNeighbor.x, randomNeighbor.y);
+            }
+        }
+
+        function getNeighbors(tile) {
+            let { x, y } = tile;
+            let neighbors = [];
+            [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]].forEach(([nx, ny]) => {
+                if (nx >= 0 && nx < boardSize && ny >= 0 && ny < boardSize) {
+                    neighbors.push({ x: nx, y: ny });
+                }
+            });
+            return neighbors;
+        }
+
+        function moveTile(x, y) {
+            let emptyIndex = emptyTile.y * boardSize + emptyTile.x;
+            let tileIndex = y * boardSize + x;
+            [board[emptyIndex], board[tileIndex]] = [board[tileIndex], board[emptyIndex]];
+            emptyTile = { x, y };
+        }
+
+        function updateBoardDisplay() {
+            const boardElement = document.getElementById('board');
+            boardElement.innerHTML = '';
+            boardElement.style.gridTemplateColumns = `repeat(${boardSize}, 1fr)`;
+
+            const tileSize = 400 / boardSize;
+
+            board.forEach((tile, index) => {
+                const tileElement = document.createElement('div');
+                tileElement.classList.add('tile');
+                tileElement.style.width = `${tileSize}px`;
+                tileElement.style.height = `${tileSize}px`;
+                if (tile === 0) {
+                    tileElement.classList.add('emptyTile');
+                } else {
+                    tileElement.innerText = tile;
+                    tileElement.onclick = () => tileClicked(index);
+                }
+                boardElement.appendChild(tileElement);
+            });
+        }
+
+        function tileClicked(index) {
+            const x = index % boardSize;
+            const y = Math.floor(index / boardSize);
+
+            const neighbors = getNeighbors(emptyTile);
+            const isValidMove = neighbors.some(neighbor => neighbor.x === x && neighbor.y === y);
+            if (isValidMove) {
+                moveCounter++;
+                document.getElementById('moveCounter').innerText = `Intentos : ${moveCounter}`;
+                moveTile(x, y);
+                updateBoardDisplay();
+                checkWin();
+            }
+        }
+
+        function startTimer() {
+            if (timer) clearInterval(timer);
+            timeCounter = 0;
+            document.getElementById('timeCounter').innerText = `Tiempo : ${timeCounter} segundos`;
+            timer = setInterval(() => {
+                timeCounter++;
+                document.getElementById('timeCounter').innerText = `Tiempo : ${timeCounter} segundos`;
+            }, 1000);
+        }
+
+        function checkWin() {
+            const spiralWin = isSpiralWin();
+            const linearWin = isLinearWin();
+
+            if (linearWin || spiralWin) {
+                clearInterval(timer);
+                alert(`Ganaste en ${timeCounter} segundos con ${moveCounter} intentos.`);
+            }
+        }
+
+        function isLinearWin() {
+            for (let i = 0; i < boardSize * boardSize - 1; i++) {
+                if (board[i] !== i + 1) return false;
+            }
+            return board[boardSize * boardSize - 1] === 0;
+        }
+
+        function isSpiralWin() {
+            const spiralSequence = generateSpiralSequence(boardSize);
+            for (let i = 0; i < boardSize * boardSize; i++) {
+                if (board[i] !== spiralSequence[i]) return false;
+            }
+            return true;
+        }
+
+        function generateSpiralSequence(size) {
+            let sequence = [];
+            let visited = new Array(size).fill(0).map(() => new Array(size).fill(false));
+            let directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+            let currentDirection = 0;
+            let row = 0, col = 0;
+
+            for (let i = 1; i <= size * size; i++) {
+                sequence.push(i % (size * size));
+                visited[row][col] = true;
+
+                let nextRow = row + directions[currentDirection][0];
+                let nextCol = col + directions[currentDirection][1];
+
+                if (nextRow >= 0 && nextRow < size && nextCol >= 0 && nextCol < size && !visited[nextRow][nextCol]) {
+                    row = nextRow;
+                    col = nextCol;
+                } else {
+                    currentDirection = (currentDirection + 1) % 4;
+                    row += directions[currentDirection][0];
+                    col += directions[currentDirection][1];
+                }
+            }
+
+            return sequence;
+        }
+    </script>
+</body>
+</html>
